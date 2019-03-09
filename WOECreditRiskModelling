@@ -1,0 +1,7 @@
+
+
+suppressPackageStartupMessages( require(scorecard) )
+suppressPackageStartupMessages( require(tidyverse) )
+suppressPackageStartupMessages( require(oetteR) )
+
+
