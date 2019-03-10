@@ -1,7 +1,223 @@
+---
+title: "WOE by AmazonAWS"
+author: "Marcos Rusiñol de Rueda"
+date: "9 de marzo de 2019"
+output: html_document
+---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
+```{r}
 suppressPackageStartupMessages( require(scorecard) )
 suppressPackageStartupMessages( require(tidyverse) )
 suppressPackageStartupMessages( require(oetteR) )
+```
 
+
+# Sample Data
+```{r}
+data('germancredit')
+
+data = germancredit %>%
+  as_tibble()
+
+#replace '.' in variable names not compatible with f_train_lasso
+vars = names(data) %>%
+  str_replace_all( '\\.', '_')
+
+names(data) <- vars
+
+# convert response factor variable to dummy variable
+
+data = data %>%
+  mutate( creditability = ifelse( creditability == 'bad', 1, 0 )
+          , creditability = as.factor(creditability) )
+
+summary(data)
+```
+
+
+# Missing Data
+
+```{r}
+Amelia::missmap(data)
+```
+
+
+# Select Variables using IV
+We can use scorecard::iv() to calculate the information values
+
+```{r}
+iv = iv(data, y = 'creditability') %>%
+  as_tibble() %>%
+  mutate( info_value = round(info_value, 3) ) %>%
+  arrange( desc(info_value) )
+
+iv %>%
+  knitr::kable()
+```
+
+
+# WEO binning
+We can use scorecard::woebin() to automatically create the bins and calculate the WOE values
+
+```{r}
+bins = woebin(data, y = 'creditability')
+```
+
+
+## Examplatory Plots
+scorecard::woebin() returns a list with one element for each variable. There also is a plotting function that we can use to make meaningful plots and check the binning scorecard::woebin_plot().
+
+```{r}
+bins$duration_in_month %>%
+  knitr::kable()
+```
+
+```{r}
+woebin_plot(bins$duration_in_month)
+```
+
+```{r}
+bins$other_debtors_or_guarantors %>%
+  knitr::kable()
+```
+
+```{r}
+woebin_plot(bins$other_debtors_or_guarantors)
+```
+
+
+## Apply bins
+We can take the list with all the binning information and pass ist to scorecard::woebin_ply in order to transform our dataset into an all WOE value dataset
+
+
+```{r}
+data_woe = woebin_ply( data, bins ) %>%
+  as_tibble()
+```
+
+
+# Feature Selection
+
+We can reduce the variables that enter our feature selection process by filtering all variables with  IV < 0.02.
+
+We would then procede to use forward or backward stepwise feature selection, which are somewhat deprecated methods. wikipedia
+
+We prefer to use lasso for feature selection in this case, since we do not have the same computational problems as in the old days we can run the lasso algorithm on all features without prefiltering by IV.
+
+## glm with lasso and crossvalidataion
+
+```{r}
+set.seed(1)
+
+vars = names(data_woe)
+vars = vars[ vars != 'creditability']
+
+formula = as.formula( paste( 'creditability ~', paste( vars , collapse = '+') ) )
+
+
+lasso = oetteR::f_train_lasso( data = data_woe
+                               , p = NULL
+                               , formula = formula
+                               , k = 50
+                               , family = 'binomial'
+                               )
+```
+
+
+## Lasso Visualisation
+
+```{r}
+plotly::ggplotly( lasso$plot_mse )
+```
+
+
+```{r}
+p = lasso$plot_coef +
+  theme( legend.position = 'none')
+
+plotly::ggplotly( p, tooltip = c('x','y','color'))
+```
+
+
+## Formula
+We select the highest lambda value whose MSE is in range of the min(MSE)+SEM.
+
+
+```{r}
+lasso$tib_all %>%
+  filter(lambda == lambda_1se) %>%
+  select( lambda_1se, auc, n_coeff_before_lasso, n_coeff_after_lasso) %>%
+  knitr::kable()
+```
+
+
+# Build and interpret the model
+## Build the model
+```{r}
+formula = as.formula( lasso$formula_str_lambda_1se )
+
+m = glm( formula, data_woe, family = 'binomial')
+
+broom::tidy( m ) %>%
+  mutate( star = oetteR::f_stat_stars(p.value) ) %>%
+  oetteR::f_datatable_universal( round_other_nums = 2, page_length = nrow(.) )
+```
+
+## Logit and Odds
+```{r}
+pred = predict(m)
+resp = predict(m, type = 'response')
+
+res = tibble( logit = pred
+              , odds = exp(pred)
+              , prob = odds / (odds + 1)
+              , prob_ctrl = resp )
+
+
+res %>%
+  f_datatable_universal( page_length =  10, round_other_nums = 5 )
+```
+
+# Convert Odds to Score
+
+## Score Card
+```{r}
+points0 = 600
+odds0 = 20
+pdo = 50
+
+card = scorecard( bins , m
+                  , points0 = points0 
+                  , odds0 = 1/odds0 # scorecard wants the inverse
+                  , pdo = pdo 
+                  )
+
+sc = scorecard_ply( data, card )
+res$score = sc[[1]]
+card[[2]]
+```
+
+#
+```{r}
+
+```
+
+#
+```{r}
+
+```
+
+#
+```{r}
+
+```
+
+#
+```{r}
+
+```
 
