@@ -1,4 +1,7 @@
-# Final Thesis Project
+# Final Thesis Project in RMARKDOWN
+Marcos Rusiñol de Rueda
+
+
 
 # Variable Transformation
 
