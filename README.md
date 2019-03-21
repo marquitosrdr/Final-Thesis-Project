@@ -1,4 +1,4 @@
-# Final Thesis Project in RMARKDOWN
+# Final Thesis Project in RMarkDown
 Marcos Rusiñol de Rueda
 
 
