@@ -1,0 +1,68 @@
+---
+title: "**Deep Learning Models in Predicting Loan Default Probability**"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+author: 
+ - name: Marcos Rusiñol de Rueda
+   affiliation: University of Barcelona & Polytechnic University of Catalonia
+   
+abstract: ""
+keywords: ""
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+    number_section: true
+    latex_engine: xelatex
+    pandoc_args: [
+      "-V", "classoption=twocolumn"
+    ]
+    template: modified.tex
+geometry: margin=1in
+fontfamily: mathpazo
+fontsize: 11pt
+bibliography: master.bibtex
+biblio-style: apsr
+---
+
+
+```{r global options, include=F}
+knitr::opts_chunk$set(echo = F, warnings = F, message = F, fig.align = "H")
+options(scipen=999, xtable.comment = FALSE)
+```
+
+
+```{r}
+library(readr)
+dataset <- read_delim("DatosSBA.csv", ";", 
+    escape_double = FALSE, col_types = cols(DisbursementDate = col_date(format = "%d-%b-%y")), 
+    trim_ws = TRUE)
+#View(dataset)
+head(dataset)
+```
+
+# Dataset modifications
+
+
+```{r}
+colnames(dataset)[colnames(dataset) == 'LoanNr_ChkDgt'] <- "ID"
+
+dataset$NewExist[dataset$NewExist==2] <- 1
+dataset$NewExist[dataset$NewExist==1] <- 0
+colnames(dataset)[colnames(dataset) == 'NewExist'] <- "New"
+
+dataset$MIS_Status[dataset$MIS_Status=='CHGOFF'] <- 1
+dataset$MIS_Status[dataset$MIS_Status=='P I F'] <- 0
+colnames(dataset)[colnames(dataset) == 'MIS_Status'] <- "Default"
+
+Daysterm <- (dataset$Term)*30
+temp_var <- (as.Date(dataset$DisbursementDate))+Daysterm
+
+dataset["recession"] <- temp_var
+dataset$recession[(dataset$recession>='2007-12-01')] <- 1
+dataset$recession[(dataset$recession<='2007-12-01')] <- 0
+dataset$recession[(dataset$recession<='2009-06-30')] <- 1
+dataset$recession[(dataset$recession>='2009-06-30')] <- 0
+
+head(dataset)
+```
+
