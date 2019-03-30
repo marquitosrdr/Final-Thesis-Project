@@ -1,6 +1,8 @@
 # Final Thesis Project in RMarkDown
 Marcos Rusiñol de Rueda
 
+Go see the Markdown document to get the entire code.
+
 # Steps:
 # 1. Variable Transformation
 
@@ -10,5 +12,7 @@ Create variable recession. Recession is defined any year between December 2007 a
 
 # 2. Descriptive Analysis
 
-# 3. WOECreditRiskModelling
-One of the first steps of the implementations is to set the variables I will work with. Therefore, the Weight of evidence (WOE), is one good way to do so. 
+# 3. WOECreditRiskModelling (WOE)
+Create the WOE of each variable
+
+# 4. Train, Test and Validation sets
