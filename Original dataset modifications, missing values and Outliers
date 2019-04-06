@@ -1,0 +1,366 @@
+---
+title: "**Deep Learning Models in Predicting Loan Default Probability**"
+subtitle: "**Original dataset modifications, missing values and Outliers**"
+documentclass: scrartcl
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+author: 
+ - name: Marcos Rusinol de Rueda
+   affiliation: University of Barcelona & Polytechnic University of Catalonia
+   
+abstract: ""
+keywords: ""
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    number_section: true
+---
+
+
+```{r global options, include=F}
+knitr::opts_chunk$set(echo = F, warnings = F, message = F, fig.align = "H")
+options(scipen=999, xtable.comment = FALSE)
+```
+
+# Required Packages
+
+```{r}
+require(dplyr)
+require(readr)
+require(ggplot2)
+require(tidyverse)
+require(colorspace)
+require(maps)
+require(ggmap)
+```
+
+<!--
+-->
+
+# Dataset modifications
+
+The objective of this part is to adapt the dataset variables to the ones I think will be more adequate for the analysis I will do.
+
+Therefore, as described in the thesis, I create three more variables, which are mainly tranformations from the ones I already have.
+
+For more detail about these transformations, please refer to the thesis.
+
+```{r eval=FALSE, include=FALSE}
+require(readr)
+dataset <- read_delim("DatosSBA.csv", ";",escape_double = FALSE, col_types = cols(DisbursementDate = col_date(format = "%d-%b-%y"),DisbursementGross = col_number(),BalanceGross = col_number(),ChgOffPrinGr = col_number(),GrAppv = col_number()),trim_ws = TRUE)
+head(dataset)
+
+# Changing variable names to make it easier
+colnames(dataset)[colnames(dataset) == 'LoanNr_ChkDgt'] <- "ID"
+
+# First transformation
+dataset$NewExist[dataset$NewExist==1] <- 0
+dataset$NewExist[dataset$NewExist==2] <- 1
+colnames(dataset)[colnames(dataset) == 'NewExist'] <- "New"
+
+# Second transformation
+dataset$MIS_Status[dataset$MIS_Status=='CHGOFF'] <- 1
+dataset$MIS_Status[dataset$MIS_Status=='P I F'] <- 0
+colnames(dataset)[colnames(dataset) == 'MIS_Status'] <- "Default"
+
+# Third transformation
+Daysterm <- (dataset$Term)*30
+temp_var <- (as.Date(dataset$DisbursementDate))+Daysterm
+
+dataset["Recession"] <- temp_var
+
+dataset<- within(dataset,Recession <- ifelse((dataset$Recession >= ("2007-12-01") & dataset$Recession <= ("2009-06-30")),1,0))
+
+#Removing variables I will not use anymore
+require(dplyr)
+dataset <- select(dataset, -Term, -DisbursementDate)
+
+# write.table(dataset, file = "dataset.csv", sep = ";", na = "NA", dec = ".", row.names = FALSE, col.names = TRUE)
+```
+
+**RAW DATASET**
+
+```{r echo=FALSE}
+dataset <- read_delim("DatosSBA.csv", ";",escape_double = FALSE, col_types = cols(DisbursementDate = col_date(format = "%d-%b-%y"),DisbursementGross = col_number(),BalanceGross = col_number(),ChgOffPrinGr = col_number(),GrAppv = col_number()),trim_ws = TRUE)
+head(dataset)
+```
+
+
+# Cleaning data
+
+```{r include=FALSE}
+dataset <- read.table("dataset.csv",header=T, sep=";")
+head(dataset)
+```
+
+As defined in the thesis, the dataset I am going to use contains 20 columns and 899164 rows.
+Before start it is a good practice to clean this dataset.
+
+Therefore, I will start by doing some descriptive analysis, visualizing the variables and treating the missing values and outliers.
+
+```{r echo=FALSE}
+# Look at the entire dataset
+class(dataset)
+dim(dataset)
+n<-dim(dataset)[1]
+K<-dim(dataset)[2]
+names(dataset)
+summary(dataset)
+
+## Dataset structure
+str(dataset)
+sapply(dataset, class)
+
+## Missing data
+#rowSums(is.na(dataset)) #NÂº of missing data per row
+colSums(is.na(dataset)) #NÂº of missing data per column
+```
+
+Missing values:
+
+`r colSums(is.na(dataset))`
+
+```{r include=FALSE}
+
+# Function to deal with outliers
+require(data.table)
+outlierReplace = function(dataframe, cols, rows, newValue = NA) {
+    if (any(rows)) {
+        set(dataframe, rows, cols, newValue)
+    }
+}
+
+# 1st: Treatment of the response variable (Default)
+summary(dataset$Default)
+# Convert to factor
+dataset$Default <- as.factor(dataset$Default)
+summary(dataset$Default)
+levels(dataset$Default)
+
+# 2nd: Treatment of quantitative variables
+
+## DisbursementGross
+summary(dataset$DisbursementGross)
+boxplot(dataset$DisbursementGross, main=paste("Boxplot of", colnames(dataset)[15],"Outliers"),xlab = "DisbursementGross", ylim = c(0,900000),col = "grey")
+boxplot(dataset$DisbursementGross)$stats[c(1, 5), ]
+length(dataset$DisbursementGross[dataset$DisbursementGross > 535750]) #NÂº of outliers
+outlierReplace (dataset,"DisbursementGross",which(dataset$DisbursementGross > 535750)) #Replacing outlier
+
+## BalanceGross
+summary(dataset$BalanceGross)
+boxplot(dataset$BalanceGross, main=paste("Boxplot of", colnames(dataset)[16],"Outliers"),ylab = "BalanceGross", ylim = c(0,5000),col = "grey")
+boxplot(dataset$BalanceGross)$stats[c(1, 5), ]
+length(dataset$BalanceGross[dataset$BalanceGross > 0])
+
+## ChgOffPrinGr
+summary(dataset$ChgOffPrinGr)
+boxplot(dataset$ChgOffPrinGr, main=paste("Boxplot of", colnames(dataset)[18],"Outliers"),ylab = "ChgOffPrinGr", ylim = c(0,5000),col = "grey")
+boxplot(dataset$ChgOffPrinGr)$stats[c(1, 5), ]
+length(dataset$ChgOffPrinGr[dataset$ChgOffPrinGr > 0])
+
+## GrAppv
+summary(dataset$GrAppv)
+boxplot(dataset$GrAppv, main=paste("Boxplot of", colnames(dataset)[19],"Outliers"),xlab = "GrAppv", ylim = c(0,900000),col = "grey")
+boxplot(dataset$GrAppv)$stats[c(1, 5), ]
+length(dataset$GrAppv[dataset$GrAppv > 515000]) #NÂº of outliers
+outlierReplace (dataset,"GrAppv",which(dataset$GrAppv > 515000)) #Replacing outliers
+boxplot(dataset$GrAppv, main=paste("Boxplot of", colnames(dataset)[19]),ylab = "GrAppv", ylim = c(0,400000),col = rgb(0.1,0.1,0.7,0.5))
+
+## NoEmp
+summary(dataset$NoEmp)
+boxplot(dataset$NoEmp, main=paste("Boxplot of NÂº Emp Outliers"),ylab = "NoEmp", ylim = c(0,1000),col = "grey")
+boxplot(dataset$NoEmp)$stats[c(1, 5), ]
+length(dataset$NoEmp[dataset$NoEmp > 22]) #NÂº of outliers
+outlierReplace (dataset,"NoEmp",which(dataset$NoEmp > 22)) #Replacing outliers
+
+## CreateJob
+summary(dataset$CreateJob)
+boxplot(dataset$CreateJob, main=paste("Boxplot of CreateJob Outliers"), ylab = "CreateJob", ylim = c(0,5),col = "grey")
+boxplot(dataset$CreateJob)$stats[c(1, 5), ]
+length(dataset$CreateJob[dataset$CreateJob > 2]) #NÂº of outliers
+outlierReplace (dataset,"CreateJob",which(dataset$CreateJob > 2)) #Replacing outliers
+length(dataset$CreateJob[dataset$CreateJob == 0])
+
+
+# 3rd: Treatment of categorical variables
+
+# Overall
+sapply(dataset, class)
+
+## City
+table(dataset$City)
+
+## State
+table(dataset$State)
+# No outliers found
+summary(dataset$State)
+
+## Zip
+table(dataset$Zip)
+
+## Bank
+table(dataset$Bank)
+
+## BankState
+table(dataset$BankState)
+# No outliers found
+summary(dataset$BankState)
+
+## NAICS
+table(dataset$NAICS)
+
+# I only need the two first digits This two first values, as explained in the thesis, represent the companyÂ´s sector. 
+dataset$NAICS <- substr(dataset$NAICS, 1, 2)
+table(dataset$NAICS)
+
+# Metainformation = 0 means outlier.
+outliers_NAICS <- sum(dataset$NAICS == 0) #outliers
+prop_NAICS <- outliers_NAICS / dim(dataset)[[1]] #proportion of outliers
+outlierReplace (dataset,"NAICS",which(dataset$NAICS == 0))
+dataset$NAICS <- as.factor(dataset$NAICS)
+dataset$NAICS <- factor(dataset$NAICS) #to remove the 0 level
+summary(dataset$NAICS)
+levels(dataset$NAICS)
+
+## New
+table(dataset$New)
+# No outliers found
+dataset$New <- as.factor(dataset$New)
+summary(dataset$New)
+levels(dataset$New)
+
+## FranchiseCode
+table(dataset$FranchiseCode)
+
+## UrbanRural
+table(dataset$UrbanRural)
+# No outliers found
+dataset$UrbanRural <- as.factor(dataset$UrbanRural)
+summary(dataset$UrbanRural)
+levels(dataset$UrbanRural)
+
+## RevLineCr
+table(dataset$RevLineCr)
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == "-"))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == ","))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == "."))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == "`"))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == 0))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == 1))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == 2))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == 3))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == 4))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == 5))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == 7))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == "A"))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == "C"))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == "Q"))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == "R"))
+outlierReplace (dataset,"RevLineCr",which(dataset$RevLineCr == "T"))
+dataset$RevLineCr <- factor(dataset$RevLineCr) #to remove the wrong levels
+table(dataset$RevLineCr)
+summary(dataset$RevLineCr)
+levels(dataset$RevLineCr)
+
+## LowDoc
+table(dataset$LowDoc)
+outlierReplace (dataset,"LowDoc",which(dataset$LowDoc == "A"))
+outlierReplace (dataset,"LowDoc",which(dataset$LowDoc == "C"))
+outlierReplace (dataset,"LowDoc",which(dataset$LowDoc == "R"))
+outlierReplace (dataset,"LowDoc",which(dataset$LowDoc == "S"))
+outlierReplace (dataset,"LowDoc",which(dataset$LowDoc == 0))
+outlierReplace (dataset,"LowDoc",which(dataset$LowDoc == 1))
+dataset$LowDoc <- factor(dataset$LowDoc) #to remove the wrong levels
+table(dataset$LowDoc)
+summary(dataset$LowDoc)
+levels(dataset$LowDoc)
+
+## Recession
+table(dataset$Recession)
+dataset$Recession <- as.factor(dataset$Recession)
+summary(dataset$Recession)
+levels(dataset$Recession)
+```
+
+The response variable has two levels: 0 with `r summary(dataset$Default) [1]` cases; and 1 with `r summary(dataset$Default) [2]` cases.
+
+Afterwards, I take a look at the numeric and categorical variables to deal with the outliers.
+For a given continuous variable, outliers are those observations that lie outside 1.5*IQR, where IQR, the âInter Quartile Rangeâ is the difference between 75th and 25th quartiles. Look at the points outside the whiskers in below box plot.
+
+**NUMERIC VARIABLES**
+
+Steps to deal with the outliers of the numeric variables:
+- 1st: I plot the variable and see if there are weird values.
+- 2nd: I get the 1.5*IQR range.
+- 3rd: I consider as an outlier those values greater or lower than the 1.5*IQR range.
+- 4th: I transform those outliers to NAÂ´s
+
+**Note:** The variable BalanceGross is an special case. It seems that the most majority of the values are 0. Actually, just `r length(dataset$BalanceGross[dataset$BalanceGross > 0])` are greater than 0. Due to the length of the entire dataset (`r dim(dataset)[[1]]`), the proportion of values greater to 0 is very low: `r length(dataset$BalanceGross[dataset$BalanceGross > 0]) / dim(dataset)[[1]]`. Therefore, I consider as a good practice to remove this values. Moreover, since the variable aims to explain the Gross amount outstanding and it is going to be 0 for all cases, I remove the entire variable. Same applies to variable `r colnames(dataset)[18]`. The proportion is: `r length(dataset$ChgOffPrinGr[dataset$ChgOffPrinGr > 0]) / dim(dataset)[[1]]`
+
+**Note_2:** I realize that the variable `r colnames(dataset)[15]` and `r colnames(dataset)[19]` are very similar: `r summary(dataset$GrAppv)` and `r summary(dataset$DisbursementGross)`.
+Actually the economic meaning of these two variables is quite the same. Both variables mainly represent the amount of money the bank gives to the company as a loan. Therefore I will also remove the GrAppv variable from the dataset
+
+**Note_3:** I realize that the most majority of the values in the CreateJob variable (which represents the amount of jobs a company creates) it is 0. `r length(dataset$CreateJob == 0)`. Therefore I consider as a good practice to remove this variable from the dataset.
+
+These are the summaries of the quantitative variables I am going to use:
+
+1. DisbursementGross:
+```{r echo=FALSE}
+summary(dataset$DisbursementGross)
+```
+
+2. NoEmp:
+```{r echo=FALSE}
+summary(dataset$NoEmp)
+```
+
+**CATEGORICAL VARIABLES**
+
+*City:* Since I already have the state, I consider the variable City does not bring any additional information, so I choose to remove it.
+
+*Zip:* I consider the variable City does not bring any additional information, so I choose to remove it.
+
+*Bank:* Since I already have the state of the bank (BankState variable), I consider the variable City does not bring any additional information, so I choose to remove it.
+
+*NAICS:* This variable contains 5 digit values. I only need the two first digits This two first digits, as explained in the thesis, represent the companyÂ´s sector. The 0 digits represents outliers. The variable have `r sum(dataset[,7] == 0)` which represents a proportion of `r outliers_NAICS / dim(dataset)[[1]]` in the entire dataset. I transform this values in NAÂ´s.
+
+*FranchiseCode:* I consider the variable City does not bring any additional information, so I choose to remove it.
+Since I have a lot of data and not too much missing data, I just choose to delete those NA from my data.
+
+*RevLineCr:* There are many wrong values, such as: "-",".","T", etc. I remove all them. That is how the variable gets: `r summary(dataset$RevLineCr)`
+
+*LowDoc:* There are many wrong values, such as: "A","C","0", etc. I remove all them. That is how the variable gets: `r summary(dataset$LowDoc)`
+
+These are the levels of the categorical variables I am going to use:
+
+1. State: `r levels(dataset$State)`
+2. BankState: `r levels(dataset$BankState)`
+3. NAICS: `r levels(dataset$NAICS)`
+4. New: `r levels(dataset$New)`
+5. UrbanRural: `r levels(dataset$UrbanRural)`
+6. RevLineCr: `r levels(dataset$RevLineCr)`
+7. LowDoc: `r levels(dataset$LowDoc)`
+8. Recession: `r levels(dataset$Recession)`
+9. Default: `r levels(dataset$Default)`
+
+```{r echo=FALSE}
+## Missing data
+#rowSums(is.na(dataset)) #NÂº of missing data per row
+colSums(is.na(dataset)) #NÂº of missing data per column
+
+# Since I have a lot of data and not too much missing data, I just choose to delete those NA from my data.
+dataset <- na.omit(dataset)
+dataset <- select(dataset, -BalanceGross, -ChgOffPrinGr, -GrAppv, -City, -Zip, -Bank, -CreateJob, -FranchiseCode)
+dim(dataset)
+#write.table(dataset, file = "datasetclean.csv", sep = ";", na = "NA", dec = ".", row.names = FALSE, col.names = TRUE)
+```
+
+I finally create a clean dataset by removing all the NAs values and deleting those variables I considered unuseful.
+The dimensions of the cleaned dataset are: `r dim(dataset)`
+
+**CLEANED DATASET**
+
+```{r echo=FALSE}
+dataset <- read.table("datasetclean.csv",header=T, sep=";",colClasses = c("factor","factor","factor","factor","numeric","factor","factor","factor","factor","numeric","factor","factor"))
+head(dataset)
+```
