@@ -1,26 +1,51 @@
 ---
-title: "WOE by AmazonAWS"
-author: "Marcos Rusiñol de Rueda"
-date: "9 de marzo de 2019"
-output: html_document
+title: "**Deep Learning Models in Predicting Loan Default Probability**"
+subtitle: "**Creating the WOE of my variables**"
+documentclass: scrartcl
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+author: 
+ - name: Marcos Rusiñol de Rueda
+   affiliation: University of Barcelona & Polytechnic University of Catalonia
+   
+abstract: ""
+keywords: ""
+output:
+  html_document:
+    toc: yes
+    toc_depth: 4
+    number_section: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 
-```{r}
+```{r include=FALSE}
 suppressPackageStartupMessages( require(scorecard) )
 suppressPackageStartupMessages( require(tidyverse) )
 suppressPackageStartupMessages( require(oetteR) )
+require(scorecard)
+require(riv)
+require(woe)
+require(Amelia)
 ```
 
 
-# Sample Data
-```{r}
-data('germancredit')
+This whole part of the thesis is extracted from the work published by AMAZON. (https://rstudio-pubs-static.s3.amazonaws.com/376828_032c59adbc984b0ab892ce0026370352.html#2_definitions).
 
-data = germancredit %>%
+The objective of this part is to adapt my data to the script and procedures defined by Amazon.
+
+It is actually very important to get the WOE of my variables, since these values are the values I am going to use to later create the Deep Learning architecture.
+
+The first step is to import the data and do some modifications, such as putting the data in a as_tibble format; and to replace all the variable´s names from . to _ . In fact, any of the variables of my dataset had a . in their name. However, I do consider a good practice to include this step.
+
+# Sample Data
+```{r echo=FALSE}
+dataset <- read.table("datasetclean.csv",header=T, sep=";",colClasses = c("factor","factor","factor","factor","numeric","factor","factor","factor","factor","numeric","factor","factor"))
+head(dataset)
+
+#as_tibble is a new S3 generic with more efficient methods for matrices and data frames.
+data = dataset %>%
   as_tibble()
 
 #replace '.' in variable names not compatible with f_train_lasso
@@ -31,26 +56,19 @@ names(data) <- vars
 
 # convert response factor variable to dummy variable
 
-data = data %>%
-  mutate( creditability = ifelse( creditability == 'bad', 1, 0 )
-          , creditability = as.factor(creditability) )
+data = data %>% mutate(Default = ifelse(Default == 1, 1, 0), Default = as.factor(Default))
 
 summary(data)
 ```
 
 
-# Missing Data
-
-```{r}
-Amelia::missmap(data)
-```
-
+This second step is to create the IV. For more technical information about the IV please refere to the thesis.
 
 # Select Variables using IV
 We can use scorecard::iv() to calculate the information values
 
-```{r}
-iv = iv(data, y = 'creditability') %>%
+```{r echo=FALSE}
+iv = iv(data, y = 'Default') %>%
   as_tibble() %>%
   mutate( info_value = round(info_value, 3) ) %>%
   arrange( desc(info_value) )
@@ -60,33 +78,159 @@ iv %>%
 ```
 
 
+This is the part where I split the data in bins and create the WOE
+
+Before doing so, I am going to group some of the variables in my dataset.
+
+The categorical variables ID, State, BankState have more than 50 unique values, which might cause the binning process slow. That is why I am going to group State and BankState (I just not going to use the variable ID, since it is just an identificator).
+
+Specifically, I am going to group the states and the BankState in four categories: west, midwest, north-east and south (DC an HI are placed in the south group)
+
+```{r}
+west <- c("WA","MT","OR","ID","WY","CA","NV","UT","CO","AZ","NM")
+midwest <- c("ND","MN","WI","SD","IA","OH","IN","IL","MO","NE","KS","MI")
+north.east <- c("ME","NH","VT","MA","RI","CT","NJ","NY","PA")
+south <- c("DE","MD","WV","VA","NC","SC","GA","FL","AL","KY","TN","MS","AK","LA","OK","TX","DC","AR","HI")
+
+data$State <- as.character(data$State)
+data$BankState <- as.character(data$BankState)
+
+
+data$State[data$State %in% west] <- "west"
+data$State[data$State %in% midwest] <- "midwest"
+data$State[data$State %in% north.east] <- "north.east"
+data$State[data$State %in% south] <- "south"
+
+data$BankState[data$BankState %in% west] <- "west"
+data$BankState[data$BankState %in% midwest] <- "midwest"
+data$BankState[data$BankState %in% north.east] <- "north.east"
+data$BankState[data$BankState %in% south] <- "south"
+
+
+data$State <- as.factor(data$State)
+data$BankState <- as.factor(data$BankState)
+```
+
+
 # WEO binning
 We can use scorecard::woebin() to automatically create the bins and calculate the WOE values
 
-```{r}
-bins = woebin(data, y = 'creditability')
+```{r include=FALSE}
+bins = woebin(data[,2:12], y = 'Default')
 ```
 
 
-## Examplatory Plots
+## Plots and tables
 scorecard::woebin() returns a list with one element for each variable. There also is a plotting function that we can use to make meaningful plots and check the binning scorecard::woebin_plot().
 
-```{r}
-bins$duration_in_month %>%
+
+### Variable State
+
+```{r echo=FALSE}
+bins$State %>%
   knitr::kable()
 ```
 
-```{r}
-woebin_plot(bins$duration_in_month)
+```{r echo=FALSE}
+woebin_plot(bins$State)
 ```
 
-```{r}
-bins$other_debtors_or_guarantors %>%
+
+### Variable BankState
+```{r echo=FALSE}
+bins$BankState %>%
   knitr::kable()
 ```
 
-```{r}
-woebin_plot(bins$other_debtors_or_guarantors)
+```{r echo=FALSE}
+woebin_plot(bins$BankState)
+```
+
+### Variable NAICS
+```{r echo=FALSE}
+bins$NAICS %>%
+  knitr::kable()
+```
+
+```{r echo=FALSE}
+woebin_plot(bins$NAICS)
+```
+
+
+### Variable NoEmp
+```{r echo=FALSE}
+bins$NoEmp %>%
+  knitr::kable()
+```
+
+```{r echo=FALSE}
+woebin_plot(bins$NoEmp)
+```
+
+
+
+### Variable New
+```{r echo=FALSE}
+bins$New %>%
+  knitr::kable()
+```
+
+```{r echo=FALSE}
+woebin_plot(bins$New)
+```
+
+
+### Variable UrbanRural
+```{r echo=FALSE}
+bins$UrbanRural %>%
+  knitr::kable()
+```
+
+```{r echo=FALSE}
+woebin_plot(bins$UrbanRural)
+```
+
+
+### Variable RevLineCr
+```{r echo=FALSE}
+bins$RevLineCr %>%
+  knitr::kable()
+```
+
+```{r echo=FALSE}
+woebin_plot(bins$RevLineCr)
+```
+
+
+### Variable LowDoc
+```{r echo=FALSE}
+bins$LowDoc %>%
+  knitr::kable()
+```
+
+```{r echo=FALSE}
+woebin_plot(bins$LowDoc)
+```
+
+### Variable DisbursementGross
+```{r echo=FALSE}
+bins$DisbursementGross %>%
+  knitr::kable()
+```
+
+```{r echo=FALSE}
+woebin_plot(bins$DisbursementGross)
+```
+
+
+### Variable Recession
+```{r echo=FALSE}
+bins$Recession %>%
+  knitr::kable()
+```
+
+```{r echo=FALSE}
+woebin_plot(bins$Recession)
 ```
 
 
@@ -94,130 +238,15 @@ woebin_plot(bins$other_debtors_or_guarantors)
 We can take the list with all the binning information and pass ist to scorecard::woebin_ply in order to transform our dataset into an all WOE value dataset
 
 
-```{r}
+```{r echo=FALSE}
 data_woe = woebin_ply( data, bins ) %>%
   as_tibble()
+View(data_woe)
 ```
 
-
-# Feature Selection
-
-We can reduce the variables that enter our feature selection process by filtering all variables with  IV < 0.02.
-
-We would then procede to use forward or backward stepwise feature selection, which are somewhat deprecated methods. wikipedia
-
-We prefer to use lasso for feature selection in this case, since we do not have the same computational problems as in the old days we can run the lasso algorithm on all features without prefiltering by IV.
-
-## glm with lasso and crossvalidataion
-
-```{r}
-set.seed(1)
-
-vars = names(data_woe)
-vars = vars[ vars != 'creditability']
-
-formula = as.formula( paste( 'creditability ~', paste( vars , collapse = '+') ) )
-
-
-lasso = oetteR::f_train_lasso( data = data_woe
-                               , p = NULL
-                               , formula = formula
-                               , k = 50
-                               , family = 'binomial'
-                               )
+```{r echo=FALSE}
+print(data_woe)
+#write.table(data_woe, file = "WOE_dataset.csv", sep = ";", na = "NA", dec = ",", row.names = FALSE, col.names = TRUE)
 ```
 
-
-## Lasso Visualisation
-
-```{r}
-plotly::ggplotly( lasso$plot_mse )
-```
-
-
-```{r}
-p = lasso$plot_coef +
-  theme( legend.position = 'none')
-
-plotly::ggplotly( p, tooltip = c('x','y','color'))
-```
-
-
-## Formula
-We select the highest lambda value whose MSE is in range of the min(MSE)+SEM.
-
-
-```{r}
-lasso$tib_all %>%
-  filter(lambda == lambda_1se) %>%
-  select( lambda_1se, auc, n_coeff_before_lasso, n_coeff_after_lasso) %>%
-  knitr::kable()
-```
-
-
-# Build and interpret the model
-## Build the model
-```{r}
-formula = as.formula( lasso$formula_str_lambda_1se )
-
-m = glm( formula, data_woe, family = 'binomial')
-
-broom::tidy( m ) %>%
-  mutate( star = oetteR::f_stat_stars(p.value) ) %>%
-  oetteR::f_datatable_universal( round_other_nums = 2, page_length = nrow(.) )
-```
-
-## Logit and Odds
-```{r}
-pred = predict(m)
-resp = predict(m, type = 'response')
-
-res = tibble( logit = pred
-              , odds = exp(pred)
-              , prob = odds / (odds + 1)
-              , prob_ctrl = resp )
-
-
-res %>%
-  f_datatable_universal( page_length =  10, round_other_nums = 5 )
-```
-
-# Convert Odds to Score
-
-## Score Card
-```{r}
-points0 = 600
-odds0 = 20
-pdo = 50
-
-card = scorecard( bins , m
-                  , points0 = points0 
-                  , odds0 = 1/odds0 # scorecard wants the inverse
-                  , pdo = pdo 
-                  )
-
-sc = scorecard_ply( data, card )
-res$score = sc[[1]]
-card[[2]]
-```
-
-#
-```{r}
-
-```
-
-#
-```{r}
-
-```
-
-#
-```{r}
-
-```
-
-#
-```{r}
-
-```
-
+Finally, We can reduce the variables that enter our feature selection process by filtering all variables with  IV < 0.02.
