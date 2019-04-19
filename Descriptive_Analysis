@@ -211,4 +211,3 @@ table
 require(ggplot2)
 ggplot(dataset,aes(x=DisbursementGross))+geom_histogram()+facet_grid(~Default)+theme_bw()
 ```
-
