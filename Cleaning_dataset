@@ -34,9 +34,6 @@ require(maps)
 require(ggmap)
 ```
 
-<!--
--->
-
 # Dataset modifications
 
 The objective of this part is to adapt the dataset variables to the ones I think will be more adequate for the analysis I will do.
