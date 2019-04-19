@@ -88,8 +88,8 @@ Specifically, I am going to group the states and the BankState in four categorie
 
 ```{r}
 west <- c("WA","MT","OR","ID","WY","CA","NV","UT","CO","AZ","NM")
-midwest <- c("ND","MN","WI","SD","IA","OH","IN","IL","MO","NE","KS","MI")
-north.east <- c("ME","NH","VT","MA","RI","CT","NJ","NY","PA")
+midwest <- c("ND","MN","WI","SD","IA","OH","IN","IL","MO","NE","KS","MI","GU")
+north.east <- c("ME","NH","VT","MA","RI","CT","NJ","NY","PA","PR")
 south <- c("DE","MD","WV","VA","NC","SC","GA","FL","AL","KY","TN","MS","AK","LA","OK","TX","DC","AR","HI")
 
 data$State <- as.character(data$State)
@@ -109,6 +109,11 @@ data$BankState[data$BankState %in% south] <- "south"
 
 data$State <- as.factor(data$State)
 data$BankState <- as.factor(data$BankState)
+head(data)
+str(data)
+ncol(data)
+as.numeric(data$DisbursementGross)
+#write.table(data, file = "datasetcleanpy.csv", sep = ";", na = "NA", dec = ",", row.names = FALSE, col.names = TRUE)
 ```
 
 
@@ -116,12 +121,13 @@ data$BankState <- as.factor(data$BankState)
 We can use scorecard::woebin() to automatically create the bins and calculate the WOE values
 
 ```{r include=FALSE}
-bins = woebin(data[,2:12], y = 'Default')
+bins = woebin(data[,2:12], y = 'Default', positive = "good|0")
 ```
 
 
 ## Plots and tables
 scorecard::woebin() returns a list with one element for each variable. There also is a plotting function that we can use to make meaningful plots and check the binning scorecard::woebin_plot().
+
 
 
 ### Variable State
