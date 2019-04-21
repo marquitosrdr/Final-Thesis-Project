@@ -1,3 +1,5 @@
+## MARCOS RUSIÑOL DE RUEDA 
+
 # FIRST: Importing data.
 # Pandas DataFrame gives massive functionality to work on data thus,
 # here we are using pandas to import data.
@@ -31,27 +33,6 @@ X = dataset.iloc[:, 1:10].values
 y = dataset.iloc[:, 0].values
 print(X)
 print(y)
-
-
-# THIRD: Let’s make analysis simpler by encoding string variables.
-# Country has string labels such as “France, Spain, Germany” while Gender has “Male, Female”.
-# We have to encode this strings into numeric and we can simply do it using pandas
-# but here I am introducing new library called ‘ScikitLearn’ which is strongest machine learning library in python.
-# We will use ‘LabelEncoder’. As the name suggests,
-# whenever we pass a variable to this function,
-# this function will automatically encode different labels in that column
-# with values between 0 to n_classes-1.
-
-
-# Cuando utilice variables cat y num,
-# ir a esta pagina
-# https://medium.com/@pushkarmandot/build-your-first-deep-learning-neural-network-model-using-keras-in-python-a90b5864116d
-
-## SINCE I AM USING WOE numeric variables, I do not need to encode
-# I might have to encode if i want to do it for the entire dataset
-
-
-# FOUR: Creating Dummies
 
 # FIVE: In Machine Learning, we always divide our data
 # into training and testing part meaning that we train our model
