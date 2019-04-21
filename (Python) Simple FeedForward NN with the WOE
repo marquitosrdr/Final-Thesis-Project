@@ -1,0 +1,167 @@
+# FIRST: Importing data.
+# Pandas DataFrame gives massive functionality to work on data thus,
+# here we are using pandas to import data.
+
+# Importing the libraries
+import os
+os.chdir("C:\\Users\\Marcos Rusinol\\Desktop\\dataset")
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+# Importing the dataset
+dataset = pd.read_csv('WOE_datasetpy.csv',sep=';')
+print(dataset.shape)
+dataset.iloc[:,1:10] = dataset.stack().str.replace(',','.').unstack()
+
+pd.to_numeric(dataset.iloc[:,0], errors='coerce')
+pd.to_numeric(dataset["State_woe"], errors='coerce')
+pd.to_numeric(dataset.iloc[:,2], errors='coerce')
+pd.to_numeric(dataset.iloc[:,3], errors='coerce')
+pd.to_numeric(dataset.iloc[:,4], errors='coerce')
+pd.to_numeric(dataset.iloc[:,5], errors='coerce')
+pd.to_numeric(dataset.iloc[:,6], errors='coerce')
+pd.to_numeric(dataset.iloc[:,7], errors='coerce')
+pd.to_numeric(dataset.iloc[:,8], errors='coerce')
+pd.to_numeric(dataset.iloc[:,9], errors='coerce')
+
+# SECOND: Create matrix of features and matrix of target variable.
+# Column 1, ‘Default’ is our Target Variable
+
+X = dataset.iloc[:, 1:10].values
+y = dataset.iloc[:, 0].values
+print(X)
+print(y)
+
+
+# THIRD: Let’s make analysis simpler by encoding string variables.
+# Country has string labels such as “France, Spain, Germany” while Gender has “Male, Female”.
+# We have to encode this strings into numeric and we can simply do it using pandas
+# but here I am introducing new library called ‘ScikitLearn’ which is strongest machine learning library in python.
+# We will use ‘LabelEncoder’. As the name suggests,
+# whenever we pass a variable to this function,
+# this function will automatically encode different labels in that column
+# with values between 0 to n_classes-1.
+
+
+# Cuando utilice variables cat y num,
+# ir a esta pagina
+# https://medium.com/@pushkarmandot/build-your-first-deep-learning-neural-network-model-using-keras-in-python-a90b5864116d
+
+## SINCE I AM USING WOE numeric variables, I do not need to encode
+# I might have to encode if i want to do it for the entire dataset
+
+
+# FOUR: Creating Dummies
+
+# FIVE: In Machine Learning, we always divide our data
+# into training and testing part meaning that we train our model
+# on training data and then we check the accuracy of a model
+# on testing data. Testing your model on testing data
+# will only help you evaluate the efficiency of model.
+
+# We will make use of ScikitLearn’s ‘train_test_split’ function
+# to divide our data. Roughly people keep 80:20, 75:25, 60:40
+# as their train test split ratio. Here we are keeping it as 80:20.
+
+# Splitting the dataset into the Training set and Test set
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.25)
+
+# SIX: Preprocessing (scaling data)
+
+# Visit: https://medium.com/@pushkarmandot/build-your-first-deep-learning-neural-network-model-using-keras-in-python-a90b5864116d
+
+# EIGHT: I am giving the name of model as Classifier
+# as our business problem is the classification of customer churn.
+# In the last step, I mentioned that we will use
+# Sequential module for initialization so here it is:
+
+#Initializing Neural Network
+from keras import models
+from keras import layers
+classifier = models.Sequential()
+
+# NINE: Adding multiple hidden layer will take bit effort.
+# We will add hidden layers one by one using dense function.
+# In the below code you will see a lot of arguments.
+
+# Adding the input layer and the first hidden layer
+
+
+act = layers.advanced_activations.PReLU(init='zero', weights=None)
+#classifier.add(layers.Dense(output_dim = 6, init = 'uniform', activation = 'relu', input_dim = 9))
+classifier.add(layers.Dense(output_dim = 10, init = 'uniform', input_dim = 9))
+classifier.add(act)
+classifier.add(layers.Dense(output_dim = 10, init = 'uniform'))
+classifier.add(act)
+classifier.add(layers.Dense(output_dim = 10, init = 'uniform'))
+classifier.add(act)
+# Adding the second hidden layer
+#classifier.add(layers.Dense(output_dim = 6, init = 'uniform', activation = 'relu'))
+#classifier.add(layers.Dense(output_dim = 6, init = 'uniform', activation = 'relu'))
+
+# Adding the output layer
+classifier.add(layers.Dense(output_dim = 1, init = 'uniform', activation = 'sigmoid'))
+
+
+# TEN: Till now we have added multiple layers to out classifier
+# now let’s compile them which can be done using compile method.
+# Arguments added in final compilativ  on will control whole
+# neural network so be careful on this step.
+# I will briefly explain arguments. (see post)
+
+# Compiling Neural Network
+classifier.compile(optimizer = 'rmsprop', loss = 'binary_crossentropy', metrics = ['accuracy'])
+
+
+# ELEVEN: TRAINING
+# We will now train our model on training data
+# but still one thing is remaining.
+# We use fit method to the fit our model In previous some steps
+# I said that we will be optimizing our weights
+# to improve model efficiency so when are we updating out weights?
+# Batch size is used to specify the number of observation
+# after which you want to update weight. Epoch is nothing
+# but the total number of iterations.
+# Choosing the value of batch size and epoch is trial
+# and error there is no specific rule for that.
+
+# Fitting our model
+x_val = X_train[:10000]
+partial_x_train = X_train[10000:]
+y_val = y_train[:10000]
+partial_y_train = y_train[10000:]
+
+history = classifier.fit(partial_x_train, partial_y_train, batch_size = 100, nb_epoch = 30, validation_data=(x_val, y_val))
+
+# TWELVE: PREDICTING
+# Predicting the test set result. The prediction result
+# will give you probability of the customer leaving the company.
+# We will convert that probability into binary 0 and 1.
+
+# Predicting the Test set results
+predictions_NN_prob = classifier.predict(X_test)
+predictions_NN_prob = (predictions_NN_prob > 0.5)
+
+# THIRTEEN: VALIDATION
+# This is the final step where we are evaluating
+# our model performance. We already have original results
+# and thus we can build confusion matrix to check
+# the accuracy of model.
+
+# Creating the Confusion Matrix
+from sklearn.metrics import confusion_matrix
+cm = confusion_matrix(y_test, predictions_NN_prob)
+
+# Getting Accuracy, Sensitivity, Specificity and AUC
+accuracy = (cm[0,0]+cm[1,1])/(cm[0,0]+cm[0,1]+cm[1,0]+cm[1,1])
+print('Accuracy : ', accuracy)
+sensitivity = cm[0,0]/(cm[0,0]+cm[0,1])
+print('Sensitivity : ', sensitivity )
+specificity = cm[1,1]/(cm[1,0]+cm[1,1])
+print('Specificity : ', specificity)
+
+from sklearn.metrics import confusion_matrix,accuracy_score, roc_curve, auc
+false_positive_rate, recall, thresholds = roc_curve(y_test, predictions_NN_prob)
+roc_auc = auc(false_positive_rate, recall)
+print('roc_auc : ', roc_auc)
