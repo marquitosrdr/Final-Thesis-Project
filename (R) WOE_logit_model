@@ -1,0 +1,82 @@
+####################################
+# Linear regression with WOE values#
+# Marcos RusiÃ±ol de Rueda          #
+# 2019                             #
+####################################
+
+# Importing DATASET
+
+dataset <- read.table("WOE_dataset.CSV",header=T, sep=";",stringsAsFactors = FALSE)
+View(dataset)
+dataset <- subset(dataset,select = -c(ID, NAICS_woe))
+View(dataset)
+str(dataset)
+
+# Load packages
+#install.packages("FactoMineR")
+library(FactoMineR)
+#install.packages("effects")
+library(effects)
+#install.packages("car")
+library(car)
+#library(installr)
+#updateR()
+
+# LOGIT MODEL
+
+dataset$Default <- as.numeric(dataset$Default)
+summary(m8 <- step(glm(Default~.,dataset[,c(1:9)],family=binomial),direction="both",trace=0))
+
+# STATS FROM MODEL
+
+marginalModelPlots(m8) 
+residualPlots(m8, layout=c(1, 2))
+plot(allEffects(m8))
+summary(m8)$coefficients
+
+# PREDICTIONS and VALIDATION
+
+#install.packages("ROCR")
+library(ROCR)
+
+dadesroc <- prediction(predict(m8,type="response"),dataset[,1])
+par(mfrow=c(1,2))
+plot(performance(dadesroc,"err"))
+plot(performance(dadesroc,"tpr","fpr"))
+abline(0,1,lty=2)
+
+# Getting AUC
+#install.packages("pROC")
+library(pROC)
+roc_obj <- roc(dataset[,1],predict(m8))
+auc(roc_obj)
+# Area under the curve: 0.697
+
+# CONFUSION MATRIX (threshold 0.4)
+
+threshold=0.4
+predicted_values<-ifelse(predict(m8,type="response")>threshold,1,0)
+actual_values<-m8$y
+conf_matrix<-table(predicted_values,actual_values)
+conf_matrix
+
+# SENSITIVITY AND SPECIFICITY
+
+#install.packages("caret")
+library(caret)
+
+sensitivity(conf_matrix)
+specificity(conf_matrix)
+
+# We can compromise on specificity here.
+# If we wrongly reject a good customer, our loss is very less compared to giving a loan to a bad customer.
+
+
+
+
+
+
+
+
+
+
