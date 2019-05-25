@@ -8,9 +8,16 @@
 
 dataset <- read.table("WOE_dataset.CSV",header=T, sep=";",stringsAsFactors = FALSE)
 View(dataset)
-dataset <- subset(dataset,select = -c(ID, NAICS_woe))
+dataset <- subset(dataset,select = -c(ID, NAICS_woe,New_woe))
 View(dataset)
 str(dataset)
+
+datasetdef = dataset[dataset$Default==1,]
+datasetnodef = dataset[dataset$Default==0, ]
+datasetnodef = datasetnodef[sample(nrow(datasetnodef), 79768), ]
+dataset<-rbind(datasetdef,datasetnodef)
+str(dataset)
+dim(dataset)
 
 # Load packages
 #install.packages("FactoMineR")
@@ -20,12 +27,16 @@ library(effects)
 #install.packages("car")
 library(car)
 #library(installr)
+#install.packages("pscl")
+library(pscl)
 #updateR()
 
 # LOGIT MODEL
 
 dataset$Default <- as.numeric(dataset$Default)
 summary(m8 <- step(glm(Default~.,dataset[,c(1:9)],family=binomial),direction="both",trace=0))
+
+pR2(m8)
 
 # STATS FROM MODEL
 
@@ -52,9 +63,9 @@ roc_obj <- roc(dataset[,1],predict(m8))
 auc(roc_obj)
 # Area under the curve: 0.697
 
-# CONFUSION MATRIX (threshold 0.4)
+# CONFUSION MATRIX (threshold 0.5)
 
-threshold=0.4
+threshold=0.5
 predicted_values<-ifelse(predict(m8,type="response")>threshold,1,0)
 actual_values<-m8$y
 conf_matrix<-table(predicted_values,actual_values)
@@ -70,13 +81,4 @@ specificity(conf_matrix)
 
 # We can compromise on specificity here.
 # If we wrongly reject a good customer, our loss is very less compared to giving a loan to a bad customer.
-
-
-
-
-
-
-
-
-
 
