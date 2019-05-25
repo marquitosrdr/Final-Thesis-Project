@@ -165,10 +165,3 @@ for c in range(ncross):
             acc.append(history.history['acc'][29])
 print(err)
 print(acc)
-
-
-
-
-
-
-
