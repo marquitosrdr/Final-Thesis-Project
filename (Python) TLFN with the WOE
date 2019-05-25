@@ -1,0 +1,80 @@
+import os
+os.chdir("C:\\Users\\Marcos Rusinol\\Desktop\\dataset")
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from keras import models
+from keras import layers
+from sklearn.metrics import confusion_matrix
+
+# Importing the dataset
+dataset = pd.read_csv('WOE_datasetpy.csv',sep=';')
+print(dataset.shape)
+dataset.iloc[:,1:10] = dataset.stack().str.replace(',','.').unstack()
+pd.to_numeric(dataset.iloc[:,0], errors='coerce')
+pd.to_numeric(dataset["State_woe"], errors='coerce')
+pd.to_numeric(dataset.iloc[:,2], errors='coerce')
+pd.to_numeric(dataset.iloc[:,3], errors='coerce')
+pd.to_numeric(dataset.iloc[:,4], errors='coerce')
+pd.to_numeric(dataset.iloc[:,5], errors='coerce')
+pd.to_numeric(dataset.iloc[:,6], errors='coerce')
+pd.to_numeric(dataset.iloc[:,7], errors='coerce')
+pd.to_numeric(dataset.iloc[:,8], errors='coerce')
+pd.to_numeric(dataset.iloc[:,9], errors='coerce')
+
+#BALANCING DATASET
+#datasetdef = dataset.loc[dataset.Default == 1]
+#datasetnodef = dataset.loc[dataset.Default == 0]
+#datasetnodef = datasetnodef.sample(79768)
+#dataset = pd.concat([datasetdef, datasetnodef])
+
+X = dataset.iloc[:, 1:10].values
+y = dataset.iloc[:, 0].values
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.25)
+
+classifier = models.Sequential()
+classifier.add(layers.Dense(output_dim=10, init='uniform', input_dim=9, activation='relu'))
+classifier.add(layers.Dense(output_dim=30, init='uniform', activation='relu'))
+classifier.add(layers.Dense(output_dim=511, init='uniform', activation='relu'))
+classifier.add(layers.Dense(output_dim=1, init='uniform', activation='sigmoid'))
+classifier.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
+x_val = X_train[:10000]
+partial_x_train = X_train[10000:]
+y_val = y_train[:10000]
+partial_y_train = y_train[10000:]
+history = classifier.fit(partial_x_train, partial_y_train, batch_size = 100, nb_epoch = 30, validation_data=(x_val, y_val))
+
+from sklearn.metrics import roc_curve, auc
+fpr2, tpr2, threshold = roc_curve(y_test, classifier.predict_proba(X_test)[:,0])
+roc_auc = auc(fpr2, tpr2)
+print('roc_auc : ', roc_auc)
+
+plt.figure()
+plt.title('ROC CURVE - UNBALANCED WOE_DATASET')
+plt.plot(fpr2, tpr2, label = 'MLP AUC = %0.2f' % roc_auc)
+plt.legend(loc = 'lower right')
+plt.plot([0, 1], [0, 1],'r--')
+plt.xlim([0, 1])
+plt.ylim([0, 1])
+plt.ylabel('True Positive Rate')
+plt.xlabel('False Positive Rate')
+plt.show()
+
+
+predictions_NN_prob = classifier.predict(X_test)
+predictions_NN_prob = (predictions_NN_prob > 0.5)
+
+# Creating the Confusion Matrix
+from sklearn.metrics import confusion_matrix
+cm = confusion_matrix(y_test, predictions_NN_prob)
+
+# Getting Accuracy, Sensitivity, Specificity and AUC
+accuracy = (cm[0,0]+cm[1,1])/(cm[0,0]+cm[0,1]+cm[1,0]+cm[1,1])
+print('Accuracy : ', accuracy)
+sensitivity = cm[0,0]/(cm[0,0]+cm[0,1])
+print('Sensitivity : ', sensitivity )
+specificity = cm[1,1]/(cm[1,0]+cm[1,1])
+print('Specificity : ', specificity)
